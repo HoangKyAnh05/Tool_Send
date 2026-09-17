@@ -85,8 +85,10 @@ def main():
             widget.start()
         except Exception as e:
             print(f"Chạy ở chế độ dòng lệnh (No GUI Widget): {e}")
-            while True:
-                time.sleep(1)
+
+        # Khi người dùng tắt/ẩn khung trạng thái góc màn hình, Bot vẫn tiếp tục chạy ngầm 24/7
+        while True:
+            time.sleep(1)
 
     except KeyboardInterrupt:
         print("\n🛑 Đã dừng Telegram Bot. Hẹn gặp lại!")
