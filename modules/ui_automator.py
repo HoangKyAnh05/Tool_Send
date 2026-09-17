@@ -10,12 +10,16 @@ from modules.window_manager import find_antigravity_window, focus_window, get_wi
 from modules.clipboard_manager import copy_text_to_clipboard, copy_image_to_clipboard
 from modules.screen_capturer import capture_screen
 
-# Tắt fail-safe của PyAutoGUI tránh lỗi ném ngoại lệ khi chuột di chuyển sát mép
+# Tắt fail-safe của PyAutoGUI tránh lỗi gián đoạn khi chuột sát mép màn hình
 pyautogui.FAILSAFE = False
 
 class UIAutomator:
     def __init__(self):
         self.calibration = config.load_calibration()
+        self.completion_watcher = None
+
+    def set_watcher(self, watcher):
+        self.completion_watcher = watcher
 
     def reload_calibration(self):
         self.calibration = config.load_calibration()
@@ -70,7 +74,11 @@ class UIAutomator:
 
         # 4. Bấm Enter để thực thi
         pyautogui.press('enter')
-        time.sleep(0.6)
+        time.sleep(0.5)
+
+        # Đánh dấu tác vụ đang chạy để watcher tự động thông báo khi hoàn thành
+        if self.completion_watcher:
+            self.completion_watcher.mark_task_started(title)
 
         # Chụp ảnh xác nhận gửi thành công
         screen_path = capture_screen(hwnd, output_filename="after_send.jpg")
@@ -78,20 +86,70 @@ class UIAutomator:
 
     def undo_prompt(self):
         """
-        Hoàn tác / Khôi phục lại câu lệnh trước trong ô chat Antigravity IDE
-        (Phím mũi tên LÊN 'Up' hoặc Ctrl+Z trong ô Chat)
+        Hoàn tác câu lệnh:
+        1. Focus vào ô chat
+        2. Xóa sạch mọi ký tự cũ đang có trong ô nhập liệu (Ctrl+A -> Backspace)
+        3. Để trống hoàn toàn ô chat để người dùng nhập câu lệnh mới
         """
         hwnd, title = self.get_target_window()
 
-        # Focus ô chat
+        # 1. Focus ô chat
         self.focus_chat_input(hwnd)
 
-        # Gửi phím mũi tên Lên để gọi lại prompt vừa gửi trước đó
-        pyautogui.press('up')
-        time.sleep(0.3)
+        # 2. Xóa sạch mọi chữ đang tồn tại trong ô chat
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.05)
+        pyautogui.press('backspace')
+        time.sleep(0.1)
 
-        screen_path = capture_screen(hwnd, output_filename="undo_done.jpg")
-        return True, f"Đã hoàn tác / gọi lại câu lệnh trước trên {title}!", screen_path
+        # 3. Gọi phím Up để lấy lệnh cũ và xóa sạch ngay để sẵn sàng nhận lệnh mới
+        pyautogui.press('up')
+        time.sleep(0.1)
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.05)
+        pyautogui.press('backspace')
+        time.sleep(0.2)
+
+        screen_path = capture_screen(hwnd, output_filename="undo_clean.jpg")
+        return True, f"Đã hoàn tác và xóa sạch ô nhập liệu trên {title}! Bạn có thể điền câu lệnh mới ngay bây giờ.", screen_path
+
+    def stop_task(self):
+        """
+        Dừng ngay lập tức tác vụ đang chạy (Stop Task):
+        1. Focus vào Antigravity IDE
+        2. Bấm Escape 3 lần để hủy tiến trình
+        3. Gửi Ctrl + C
+        4. Click vào vị trí nút Stop màu xanh/đỏ trên giao diện
+        """
+        hwnd, title = self.get_target_window()
+        rect = get_window_rect(hwnd) if hwnd else None
+
+        # 1. Gửi Escape & Ctrl+C
+        pyautogui.press('escape')
+        time.sleep(0.05)
+        pyautogui.press('escape')
+        time.sleep(0.05)
+        pyautogui.hotkey('ctrl', 'c')
+        time.sleep(0.1)
+
+        # 2. Click vào vị trí nút Stop (phía trên ô chat bên phải)
+        if rect:
+            stop_x = rect["left"] + int(rect["width"] * 0.94)
+            stop_y = rect["bottom"] - 95
+            pyautogui.click(stop_x, stop_y)
+            time.sleep(0.1)
+            # Click thêm vị trí giữa ô chat để đảm bảo
+            mid_stop_x = rect["left"] + int(rect["width"] * 0.70)
+            mid_stop_y = rect["bottom"] - 60
+            pyautogui.click(mid_stop_x, mid_stop_y)
+            pyautogui.press('escape')
+
+        if self.completion_watcher:
+            self.completion_watcher.mark_task_stopped()
+
+        time.sleep(0.3)
+        screen_path = capture_screen(hwnd, output_filename="stop_done.jpg")
+        return True, f"Đã gửi lệnh dừng tác vụ (Stop Task) trên {title}!", screen_path
 
     def accept_all(self):
         """Thực hiện hành động Accept All bằng Computer Vision + Click chuột trực tiếp"""
@@ -100,15 +158,6 @@ class UIAutomator:
     def reject_all(self):
         """Thực hiện hành động Reject All bằng Computer Vision + Click chuột trực tiếp"""
         return self._smart_click_button("reject")
-
-    def stop_task(self):
-        """Dừng tiến trình hiện tại (Ctrl + C hoặc Escape)"""
-        hwnd, title = self.get_target_window()
-        pyautogui.hotkey('ctrl', 'c')
-        pyautogui.press('escape')
-        time.sleep(0.3)
-        screen_path = capture_screen(hwnd, output_filename="stop_done.jpg")
-        return True, f"Đã gửi lệnh dừng tác vụ trên {title}!", screen_path
 
     def _smart_click_button(self, action_type="accept"):
         """
@@ -186,8 +235,8 @@ class UIAutomator:
             img_h, img_w, _ = img.shape
 
             # Vùng quét: Góc dưới bên phải (nơi đặt các nút Accept/Reject)
-            roi_y1, roi_y2 = int(img_h * 0.6), int(img_h * 0.98)
-            roi_x1, roi_x2 = int(img_w * 0.5), int(img_w * 0.99)
+            roi_y1, roi_y2 = int(img_h * 0.55), int(img_h * 0.98)
+            roi_x1, roi_x2 = int(img_w * 0.50), int(img_w * 0.99)
             roi = img[roi_y1:roi_y2, roi_x1:roi_x2]
 
             # Bộ lọc màu xanh dương (Blue/Cyan của nút Accept all trong Antigravity)
@@ -223,5 +272,4 @@ class UIAutomator:
 
             return final_x, final_y
         except Exception as e:
-            print(f"[UIAutomator] Lỗi nhận diện CV: {e}")
             return None

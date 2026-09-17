@@ -1,4 +1,6 @@
 import os
+import sys
+import subprocess
 import time
 from pathlib import Path
 import telebot
@@ -6,6 +8,7 @@ from telebot import types
 
 import config
 from modules.ui_automator import UIAutomator
+from modules.completion_watcher import TaskCompletionWatcher
 from modules.screen_capturer import capture_screen
 from modules.window_manager import (
     find_antigravity_window,
@@ -60,6 +63,9 @@ def create_window_switch_keyboard():
 def setup_bot(bot_token: str):
     bot = telebot.TeleBot(bot_token)
     automator = UIAutomator()
+    watcher = TaskCompletionWatcher(bot, automator)
+    automator.set_watcher(watcher)
+    watcher.start()
 
     def is_authorized(user_id: int) -> bool:
         if not config.ALLOWED_USER_IDS:
@@ -90,12 +96,13 @@ def setup_bot(bot_token: str):
             "👋 Antigravity Remote Controller\n\n"
             f"🎯 Dự án đang chọn: {cur_title}\n"
             f"📂 Tổng số dự án Antigravity phát hiện: {len(all_wins)}\n\n"
-            "✨ Hướng dẫn:\n"
-            "1. 💬 Gõ tin nhắn bất kỳ -> Tự động dán Prompt vào ô Chat.\n"
-            "2. 📷 Gửi ảnh -> Tự động dán ảnh vào Antigravity.\n"
-            "3. 🔀 Bấm [Đổi Cửa Sổ Dự Án] để chuyển giữa các dự án đang mở.\n"
-            "4. ↩️ Bấm [Undo Lệnh Trước] để hoàn tác / gọi lại câu lệnh trước.\n"
-            "5. ✅ Bấm [Accept All / Reject All] để duyệt code."
+            "✨ Tính năng nổi bật:\n"
+            "1. 💬 Gõ tin nhắn -> Dán Prompt vào ô Chat.\n"
+            "2. 📷 Gửi ảnh -> Dán ảnh thẳng vào Antigravity.\n"
+            "3. 🔀 Bấm [Đổi Cửa Sổ Dự Án] để chuyển đổi giữa các dự án.\n"
+            "4. ↩️ Bấm [Undo Lệnh Trước] để xóa sạch ô nhập và chuẩn bị lệnh mới.\n"
+            "5. 🛑 Bấm [Stop Task] để dừng ngay câu lệnh đang chạy.\n"
+            "6. 🔔 Tự động gửi thông báo + ảnh màn hình khi AI hoàn thành câu lệnh!"
         )
         bot.send_message(message.chat.id, text, reply_markup=create_main_keyboard())
 
@@ -113,6 +120,28 @@ def setup_bot(bot_token: str):
         bot.send_chat_action(message.chat.id, 'typing')
         success, msg, screen_path = automator.undo_prompt()
         _send_action_result(message.chat.id, "↩️ Undo Lệnh", msg, screen_path)
+
+    # --- LỆNH /stop ---
+    @bot.message_handler(commands=['stop'])
+    @check_auth_decorator
+    def handle_stop_cmd(message):
+        bot.send_chat_action(message.chat.id, 'typing')
+        success, msg, screen_path = automator.stop_task()
+        _send_action_result(message.chat.id, "🛑 Stop Task", msg, screen_path)
+
+    # --- LỆNH /restart ---
+    @bot.message_handler(commands=['restart'])
+    @check_auth_decorator
+    def handle_restart_cmd(message):
+        bot.send_message(message.chat.id, "🔄 Đang khởi động lại Bot trên máy tính...")
+        time.sleep(0.5)
+        try:
+            base_dir = str(config.BASE_DIR)
+            main_script = os.path.join(base_dir, "main.py")
+            subprocess.Popen([sys.executable, main_script], cwd=base_dir)
+        except Exception:
+            pass
+        os._exit(0)
 
     # --- LỆNH /screen ---
     @bot.message_handler(commands=['screen'])
@@ -189,7 +218,6 @@ def setup_bot(bot_token: str):
             bot.answer_callback_query(call.id, "🔍 Đang quét các dự án Antigravity...")
             markup, text = create_window_switch_keyboard()
             try:
-                # Nếu tin nhắn cũ là ảnh, gửi tin nhắn mới
                 if getattr(call.message, 'content_type', '') == 'photo' or getattr(call.message, 'photo', None):
                     bot.send_message(chat_id, text, reply_markup=markup)
                 else:
@@ -221,7 +249,6 @@ def setup_bot(bot_token: str):
                 else:
                     bot.send_message(chat_id, confirm_text, reply_markup=create_main_keyboard())
             else:
-                # Nếu hwnd cũ bị đổi, quét lại
                 set_active_target_window(target_hwnd)
                 focus_window(target_hwnd)
                 time.sleep(0.3)
@@ -261,7 +288,7 @@ def setup_bot(bot_token: str):
             _send_action_result(chat_id, "❌ Reject All", msg, screen_path)
 
         elif action == "act_undo":
-            bot.answer_callback_query(call.id, "↩️ Đang hoàn tác / gọi lại lệnh trước...")
+            bot.answer_callback_query(call.id, "↩️ Đang hoàn tác và làm sạch ô nhập...")
             success, msg, screen_path = automator.undo_prompt()
             _send_action_result(chat_id, "↩️ Undo Lệnh", msg, screen_path)
 
