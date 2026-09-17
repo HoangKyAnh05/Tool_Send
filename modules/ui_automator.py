@@ -44,9 +44,9 @@ class UIAutomator:
         if hwnd:
             rect = get_window_rect(hwnd)
             if rect:
-                # Ô chat Antigravity nằm ở góc dưới khu vực bên phải (khoảng 60% width, cách đáy 55px)
-                chat_x = rect["left"] + int(rect["width"] * 0.60)
-                chat_y = rect["bottom"] - 55
+                # Ô chat Antigravity nằm ở góc dưới khu vực bên phải
+                chat_x = rect["left"] + int(rect["width"] * 0.55)
+                chat_y = rect["bottom"] - 80
                 pyautogui.click(chat_x, chat_y)
                 time.sleep(0.1)
 
@@ -87,54 +87,50 @@ class UIAutomator:
     def undo_prompt(self):
         """
         Hoàn tác (Undo) câu lệnh gần nhất trong Antigravity IDE:
-        1. Focus vào cửa sổ Antigravity IDE
-        2. Rê chuột vào vùng tin nhắn gần nhất để hiển thị thanh thao tác (Copy, Undo icon)
-        3. Click vào icon Undo (mũi tên hoàn tác) bên cạnh timestamp
-        4. Focus vào ô Chat, xóa sạch nội dung cũ để sẵn sàng nhận lệnh mới
-        5. Chụp ảnh màn hình gửi về Telegram xác nhận
+        1. Focus vào Antigravity IDE
+        2. Click vào nút [ ← ] Rollback Checkpoint trên thanh trạng thái
+        3. Rê chuột click nút Undo cạnh timestamp
+        4. Focus vào ô Chat và gọi phím Up để lấy lại nội dung câu lệnh
+        5. Chụp ảnh màn hình Live xác nhận
         """
         hwnd, title = self.get_target_window()
         rect = get_window_rect(hwnd) if hwnd else None
 
         if rect:
-            # 1. Rê chuột vào vùng tin nhắn cuối cùng để kích hoạt nút hover Undo (mũi tên hoàn tác)
-            hover_x = rect["left"] + int(rect["width"] * 0.70)
-            hover_y = rect["bottom"] - 140
-            pyautogui.moveTo(hover_x, hover_y, duration=0.1)
-            time.sleep(0.15)
-
-            # 2. Click vào icon Undo (mũi tên) bên cạnh timestamp
-            undo_click_x = rect["left"] + int(rect["width"] * 0.76)
-            undo_click_y = hover_y
-            pyautogui.click(undo_click_x, undo_click_y)
+            # 1. Click nút [ ← ] Rollback trên thanh Checkpoint bar
+            rollback_x = rect["left"] + int(rect["width"] * 0.37)
+            rollback_y = rect["bottom"] - 170
+            pyautogui.click(rollback_x, rollback_y)
             time.sleep(0.2)
 
-        # 3. Focus vào ô Chat và làm sạch
+            # 2. Rê chuột vào vùng tin nhắn cuối cùng để kích hoạt nút hover Undo
+            hover_x = rect["left"] + int(rect["width"] * 0.70)
+            hover_y = rect["bottom"] - 250
+            pyautogui.moveTo(hover_x, hover_y, duration=0.1)
+            time.sleep(0.15)
+            undo_click_x = rect["left"] + int(rect["width"] * 0.76)
+            pyautogui.click(undo_click_x, hover_y)
+            time.sleep(0.2)
+
+        # 3. Focus vào ô Chat và gọi lại prompt cũ bằng phím Up
         self.focus_chat_input(hwnd)
         pyautogui.hotkey('ctrl', 'a')
-        time.sleep(0.05)
         pyautogui.press('backspace')
-        time.sleep(0.1)
-
-        # 4. Thử thêm phím mũi tên Lên rồi xóa sạch nếu cần
+        time.sleep(0.05)
         pyautogui.press('up')
-        time.sleep(0.1)
-        pyautogui.hotkey('ctrl', 'a')
-        time.sleep(0.05)
-        pyautogui.press('backspace')
-        time.sleep(0.2)
+        time.sleep(0.3)
 
         screen_path = capture_screen(hwnd, output_filename="undo_done.jpg")
-        return True, f"Đã hoàn tác (Undo) câu lệnh gần nhất và làm sạch ô nhập liệu trên {title}!", screen_path
+        return True, f"Đã hoàn tác (Undo) câu lệnh gần nhất trên {title}!", screen_path
 
     def stop_task(self):
         """
         Dừng ngay lập tức tác vụ đang chạy trong Antigravity IDE (Stop Task):
-        1. Focus vào cửa sổ Antigravity IDE
-        2. Focus vào ô chat / vùng agent đang chạy
-        3. Bấm Escape 3 lần để dừng tiến trình
-        4. Gửi Ctrl + C và Ctrl + Break
-        5. Click trực tiếp vào các vị trí nút Stop / Cancel trên giao diện
+        1. Focus vào ô chat / vùng agent đang chạy
+        2. Bấm Escape 3 lần liên tiếp
+        3. Gửi Ctrl + C
+        4. Click vào nút tròn Stop ở góc phải ô chat
+        5. Click vào nút Stop trên thanh trạng thái
         """
         hwnd, title = self.get_target_window()
         rect = get_window_rect(hwnd) if hwnd else None
@@ -150,27 +146,18 @@ class UIAutomator:
         time.sleep(0.05)
         pyautogui.hotkey('ctrl', 'c')
         time.sleep(0.05)
-        pyautogui.hotkey('ctrl', 'c')
-        time.sleep(0.05)
 
-        # 3. Click trực tiếp vào các vị trí nút Stop (trên và trong ô chat)
+        # 3. Click nút tròn Stop ở góc phải ô chat (Send đổi thành Stop)
         if rect:
-            # Vị trí nút Stop bên phải ô chat
-            stop_x1 = rect["left"] + int(rect["width"] * 0.94)
-            stop_y1 = rect["bottom"] - 95
-            pyautogui.click(stop_x1, stop_y1)
+            stop_circle_x = rect["right"] - 50
+            stop_circle_y = rect["bottom"] - 50
+            pyautogui.click(stop_circle_x, stop_circle_y)
             time.sleep(0.1)
 
-            # Vị trí nút Stop bên trong ô chat (nút gửi đổi thành nút dừng)
-            stop_x2 = rect["left"] + int(rect["width"] * 0.95)
-            stop_y2 = rect["bottom"] - 55
-            pyautogui.click(stop_x2, stop_y2)
-            time.sleep(0.1)
-
-            # Vị trí nút Cancel ở giữa thanh trạng thái Working
-            stop_x3 = rect["left"] + int(rect["width"] * 0.70)
-            stop_y3 = rect["bottom"] - 130
-            pyautogui.click(stop_x3, stop_y3)
+            # Click nút Stop trên thanh Checkpoint / Status bar
+            stop_bar_x = rect["left"] + int(rect["width"] * 0.94)
+            stop_bar_y = rect["bottom"] - 150
+            pyautogui.click(stop_bar_x, stop_bar_y)
             time.sleep(0.05)
 
             pyautogui.press('escape')
@@ -231,10 +218,10 @@ class UIAutomator:
             # Nút Accept all nằm ở khoảng 94% chiều ngang, 87% chiều dọc (ngay trên ô chat)
             if action_type == "accept":
                 fallback_x = rect["left"] + int(rect["width"] * 0.94)
-                fallback_y = rect["bottom"] - 95
+                fallback_y = rect["bottom"] - 150
             else:  # Reject all nằm bên trái Accept all
                 fallback_x = rect["left"] + int(rect["width"] * 0.88)
-                fallback_y = rect["bottom"] - 95
+                fallback_y = rect["bottom"] - 150
 
             pyautogui.moveTo(fallback_x, fallback_y, duration=0.1)
             pyautogui.click(fallback_x, fallback_y)
@@ -266,8 +253,8 @@ class UIAutomator:
             img_h, img_w, _ = img.shape
 
             # Vùng quét: Góc dưới bên phải (nơi đặt các nút Accept/Reject)
-            roi_y1, roi_y2 = int(img_h * 0.55), int(img_h * 0.98)
-            roi_x1, roi_x2 = int(img_w * 0.50), int(img_w * 0.99)
+            roi_y1, roi_y2 = int(img_h * 0.50), int(img_h * 0.98)
+            roi_x1, roi_x2 = int(img_w * 0.40), int(img_w * 0.99)
             roi = img[roi_y1:roi_y2, roi_x1:roi_x2]
 
             # Bộ lọc màu xanh dương (Blue/Cyan của nút Accept all trong Antigravity)
