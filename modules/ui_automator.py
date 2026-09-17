@@ -86,23 +86,37 @@ class UIAutomator:
 
     def undo_prompt(self):
         """
-        Hoàn tác câu lệnh:
-        1. Focus vào ô chat
-        2. Xóa sạch mọi ký tự cũ đang có trong ô nhập liệu (Ctrl+A -> Backspace)
-        3. Để trống hoàn toàn ô chat để người dùng nhập câu lệnh mới
+        Hoàn tác (Undo) câu lệnh gần nhất trong Antigravity IDE:
+        1. Focus vào cửa sổ Antigravity IDE
+        2. Rê chuột vào vùng tin nhắn gần nhất để hiển thị thanh thao tác (Copy, Undo icon)
+        3. Click vào icon Undo (mũi tên hoàn tác) bên cạnh timestamp
+        4. Focus vào ô Chat, xóa sạch nội dung cũ để sẵn sàng nhận lệnh mới
+        5. Chụp ảnh màn hình gửi về Telegram xác nhận
         """
         hwnd, title = self.get_target_window()
+        rect = get_window_rect(hwnd) if hwnd else None
 
-        # 1. Focus ô chat
+        if rect:
+            # 1. Rê chuột vào vùng tin nhắn cuối cùng để kích hoạt nút hover Undo (mũi tên hoàn tác)
+            hover_x = rect["left"] + int(rect["width"] * 0.70)
+            hover_y = rect["bottom"] - 140
+            pyautogui.moveTo(hover_x, hover_y, duration=0.1)
+            time.sleep(0.15)
+
+            # 2. Click vào icon Undo (mũi tên) bên cạnh timestamp
+            undo_click_x = rect["left"] + int(rect["width"] * 0.76)
+            undo_click_y = hover_y
+            pyautogui.click(undo_click_x, undo_click_y)
+            time.sleep(0.2)
+
+        # 3. Focus vào ô Chat và làm sạch
         self.focus_chat_input(hwnd)
-
-        # 2. Xóa sạch mọi chữ đang tồn tại trong ô chat
         pyautogui.hotkey('ctrl', 'a')
         time.sleep(0.05)
         pyautogui.press('backspace')
         time.sleep(0.1)
 
-        # 3. Gọi phím Up để lấy lệnh cũ và xóa sạch ngay để sẵn sàng nhận lệnh mới
+        # 4. Thử thêm phím mũi tên Lên rồi xóa sạch nếu cần
         pyautogui.press('up')
         time.sleep(0.1)
         pyautogui.hotkey('ctrl', 'a')
@@ -110,38 +124,55 @@ class UIAutomator:
         pyautogui.press('backspace')
         time.sleep(0.2)
 
-        screen_path = capture_screen(hwnd, output_filename="undo_clean.jpg")
-        return True, f"Đã hoàn tác và xóa sạch ô nhập liệu trên {title}! Bạn có thể điền câu lệnh mới ngay bây giờ.", screen_path
+        screen_path = capture_screen(hwnd, output_filename="undo_done.jpg")
+        return True, f"Đã hoàn tác (Undo) câu lệnh gần nhất và làm sạch ô nhập liệu trên {title}!", screen_path
 
     def stop_task(self):
         """
-        Dừng ngay lập tức tác vụ đang chạy (Stop Task):
-        1. Focus vào Antigravity IDE
-        2. Bấm Escape 3 lần để hủy tiến trình
-        3. Gửi Ctrl + C
-        4. Click vào vị trí nút Stop màu xanh/đỏ trên giao diện
+        Dừng ngay lập tức tác vụ đang chạy trong Antigravity IDE (Stop Task):
+        1. Focus vào cửa sổ Antigravity IDE
+        2. Focus vào ô chat / vùng agent đang chạy
+        3. Bấm Escape 3 lần để dừng tiến trình
+        4. Gửi Ctrl + C và Ctrl + Break
+        5. Click trực tiếp vào các vị trí nút Stop / Cancel trên giao diện
         """
         hwnd, title = self.get_target_window()
         rect = get_window_rect(hwnd) if hwnd else None
 
-        # 1. Gửi Escape & Ctrl+C
+        # 1. Focus ô chat / vùng agent
+        self.focus_chat_input(hwnd)
+        time.sleep(0.05)
+
+        # 2. Gửi chuỗi phím dừng tác vụ
         pyautogui.press('escape')
         time.sleep(0.05)
         pyautogui.press('escape')
         time.sleep(0.05)
         pyautogui.hotkey('ctrl', 'c')
-        time.sleep(0.1)
+        time.sleep(0.05)
+        pyautogui.hotkey('ctrl', 'c')
+        time.sleep(0.05)
 
-        # 2. Click vào vị trí nút Stop (phía trên ô chat bên phải)
+        # 3. Click trực tiếp vào các vị trí nút Stop (trên và trong ô chat)
         if rect:
-            stop_x = rect["left"] + int(rect["width"] * 0.94)
-            stop_y = rect["bottom"] - 95
-            pyautogui.click(stop_x, stop_y)
+            # Vị trí nút Stop bên phải ô chat
+            stop_x1 = rect["left"] + int(rect["width"] * 0.94)
+            stop_y1 = rect["bottom"] - 95
+            pyautogui.click(stop_x1, stop_y1)
             time.sleep(0.1)
-            # Click thêm vị trí giữa ô chat để đảm bảo
-            mid_stop_x = rect["left"] + int(rect["width"] * 0.70)
-            mid_stop_y = rect["bottom"] - 60
-            pyautogui.click(mid_stop_x, mid_stop_y)
+
+            # Vị trí nút Stop bên trong ô chat (nút gửi đổi thành nút dừng)
+            stop_x2 = rect["left"] + int(rect["width"] * 0.95)
+            stop_y2 = rect["bottom"] - 55
+            pyautogui.click(stop_x2, stop_y2)
+            time.sleep(0.1)
+
+            # Vị trí nút Cancel ở giữa thanh trạng thái Working
+            stop_x3 = rect["left"] + int(rect["width"] * 0.70)
+            stop_y3 = rect["bottom"] - 130
+            pyautogui.click(stop_x3, stop_y3)
+            time.sleep(0.05)
+
             pyautogui.press('escape')
 
         if self.completion_watcher:
