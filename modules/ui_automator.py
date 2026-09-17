@@ -88,31 +88,34 @@ class UIAutomator:
         """
         Hoàn tác (Undo) câu lệnh gần nhất trong Antigravity IDE:
         1. Focus vào Antigravity IDE
-        2. Click vào nút [ ← ] Rollback Checkpoint trên thanh trạng thái
-        3. Rê chuột click nút Undo cạnh timestamp
-        4. Focus vào ô Chat và gọi phím Up để lấy lại nội dung câu lệnh
+        2. Rê chuột vào tin nhắn gần nhất và click nút Edit / Undo trên thanh thao tác
+        3. Click nút [ ← ] Rollback Checkpoint trên thanh trạng thái nếu có thay đổi
+        4. Focus vào ô Chat và nạp lại câu lệnh cũ qua phím Up để sẵn sàng sửa đổi
         5. Chụp ảnh màn hình Live xác nhận
         """
         hwnd, title = self.get_target_window()
         rect = get_window_rect(hwnd) if hwnd else None
 
         if rect:
-            # 1. Click nút [ ← ] Rollback trên thanh Checkpoint bar
+            # 1. Rê chuột vào tin nhắn gần nhất (ở phía trên khung chat)
+            user_msg_x = rect["left"] + int(rect["width"] * 0.50)
+            user_msg_y = rect["top"] + 115
+            pyautogui.moveTo(user_msg_x, user_msg_y, duration=0.15)
+            time.sleep(0.25)
+
+            # 2. Click nút Edit / Undo (icon đầu tiên trên thanh thao tác của tin nhắn)
+            edit_icon_x = rect["right"] - 190
+            edit_icon_y = rect["top"] + 85
+            pyautogui.click(edit_icon_x, edit_icon_y)
+            time.sleep(0.2)
+
+            # 3. Click nút [ ← ] Rollback trên thanh Checkpoint bar
             rollback_x = rect["left"] + int(rect["width"] * 0.37)
             rollback_y = rect["bottom"] - 170
             pyautogui.click(rollback_x, rollback_y)
             time.sleep(0.2)
 
-            # 2. Rê chuột vào vùng tin nhắn cuối cùng để kích hoạt nút hover Undo
-            hover_x = rect["left"] + int(rect["width"] * 0.70)
-            hover_y = rect["bottom"] - 250
-            pyautogui.moveTo(hover_x, hover_y, duration=0.1)
-            time.sleep(0.15)
-            undo_click_x = rect["left"] + int(rect["width"] * 0.76)
-            pyautogui.click(undo_click_x, hover_y)
-            time.sleep(0.2)
-
-        # 3. Focus vào ô Chat và gọi lại prompt cũ bằng phím Up
+        # 4. Focus vào ô Chat và gọi lại prompt cũ bằng phím Up
         self.focus_chat_input(hwnd)
         pyautogui.hotkey('ctrl', 'a')
         pyautogui.press('backspace')
@@ -149,8 +152,8 @@ class UIAutomator:
 
         # 3. Click nút tròn Stop ở góc phải ô chat (Send đổi thành Stop)
         if rect:
-            stop_circle_x = rect["right"] - 50
-            stop_circle_y = rect["bottom"] - 50
+            stop_circle_x = rect["right"] - 45
+            stop_circle_y = rect["bottom"] - 45
             pyautogui.click(stop_circle_x, stop_circle_y)
             time.sleep(0.1)
 
