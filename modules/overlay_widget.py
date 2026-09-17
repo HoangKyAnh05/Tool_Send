@@ -78,7 +78,7 @@ class FloatingStatusWidget:
         title_lbl.bind("<Button-1>", self._start_move)
         title_lbl.bind("<B1-Motion>", self._do_move)
 
-        # Nút [✕] đóng nhỏ ở góc trên
+        # Nút [✕] đóng nhỏ ở góc trên (Ẩn khung widget, tool tiếp tục chạy ngầm)
         btn_x = tk.Label(
             top_row,
             text=" ✕ ",
@@ -88,9 +88,9 @@ class FloatingStatusWidget:
             cursor="hand2"
         )
         btn_x.pack(side="right")
-        btn_x.bind("<Enter>", lambda e: btn_x.config(fg=self.red_color))
+        btn_x.bind("<Enter>", lambda e: btn_x.config(fg="#00e5ff"))
         btn_x.bind("<Leave>", lambda e: btn_x.config(fg="#9ca3af"))
-        btn_x.bind("<Button-1>", lambda e: self.stop_app())
+        btn_x.bind("<Button-1>", lambda e: self.hide_widget())
 
         # 2. Hàng Trạng Thái & Các Nút Thao Tác
         bottom_row = tk.Frame(self.main_frame, bg=self.bg_color)
@@ -197,8 +197,16 @@ class FloatingStatusWidget:
             pass
         os._exit(0)
 
+    def hide_widget(self):
+        """Đóng khung hiển thị widget nhưng giữ cho bot tiếp tục chạy ngầm 100%"""
+        try:
+            if self.root:
+                self.root.destroy()
+        except Exception:
+            pass
+
     def stop_app(self):
-        """Dừng toàn bộ hệ thống ngay lập tức khi người dùng bấm nút"""
+        """Dừng toàn bộ hệ thống ngay lập tức khi người dùng bấm nút [🛑 TẮT TOOL] màu đỏ"""
         try:
             if self.on_stop_callback:
                 self.on_stop_callback()
@@ -211,5 +219,5 @@ class FloatingStatusWidget:
         except Exception:
             pass
 
-        # Dừng triệt để tiến trình python
+        # Dừng triệt để toàn bộ tiến trình python
         os._exit(0)
