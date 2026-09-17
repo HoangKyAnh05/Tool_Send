@@ -1,6 +1,19 @@
 import sys
+import os
 import time
 import threading
+
+# Đảm bảo Windows nạp đầy đủ DLLs (SSL, PyAutoGUI, CV2)
+if sys.platform == 'win32':
+    try:
+        py_dir = os.path.dirname(sys.executable)
+        if os.path.exists(py_dir):
+            os.add_dll_directory(py_dir)
+        dlls_dir = os.path.join(py_dir, 'DLLs')
+        if os.path.exists(dlls_dir):
+            os.add_dll_directory(dlls_dir)
+    except Exception:
+        pass
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -18,7 +31,8 @@ def print_banner():
     print("=" * 60)
     print("  ✓ Điều khiển Antigravity từ điện thoại ở bất kỳ đâu")
     print("  ✓ Gửi Prompt tiếng Việt, gửi ảnh, chụp màn hình Live")
-    print("  ✓ Duyệt lệnh Accept All / Reject All / Proceed tức thì")
+    print("  ✓ Duyệt lệnh Accept All / Reject All tức thì")
+    print("  ✓ Tự động thông báo khi hoàn thành câu lệnh 100%")
     print("=" * 60)
 
 def main():

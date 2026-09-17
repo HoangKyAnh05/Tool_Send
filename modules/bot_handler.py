@@ -23,14 +23,11 @@ def create_main_keyboard():
 
     btn_accept = types.InlineKeyboardButton("✅ Accept All", callback_data="act_accept")
     btn_reject = types.InlineKeyboardButton("❌ Reject All", callback_data="act_reject")
-    btn_undo = types.InlineKeyboardButton("↩️ Undo Lệnh Trước", callback_data="act_undo")
-    btn_stop = types.InlineKeyboardButton("🛑 Stop Task", callback_data="act_stop")
     btn_switch = types.InlineKeyboardButton("🔀 Đổi Cửa Sổ Dự Án", callback_data="act_switch_menu")
     btn_screen = types.InlineKeyboardButton("📷 Xem Màn Hình Live", callback_data="act_screen")
     btn_status = types.InlineKeyboardButton("🔍 Kiểm Tra Kết Nối", callback_data="act_status")
 
     markup.add(btn_accept, btn_reject)
-    markup.add(btn_undo, btn_stop)
     markup.add(btn_switch)
     markup.add(btn_screen, btn_status)
     return markup
@@ -100,8 +97,8 @@ def setup_bot(bot_token: str):
             "1. 💬 Gõ tin nhắn -> Dán Prompt vào ô Chat.\n"
             "2. 📷 Gửi ảnh -> Dán ảnh thẳng vào Antigravity.\n"
             "3. 🔀 Bấm [Đổi Cửa Sổ Dự Án] để chuyển đổi giữa các dự án.\n"
-            "4. ↩️ Bấm [Undo Lệnh Trước] để xóa sạch ô nhập và chuẩn bị lệnh mới.\n"
-            "5. 🛑 Bấm [Stop Task] để dừng ngay câu lệnh đang chạy.\n"
+            "4. ✅ Bấm [Accept All] / [Reject All] để duyệt hoặc từ chối thay đổi.\n"
+            "5. 📷 Bấm [Xem Màn Hình Live] để xem màn hình trực tiếp.\n"
             "6. 🔔 Tự động gửi thông báo + ảnh màn hình khi AI hoàn thành câu lệnh!"
         )
         bot.send_message(message.chat.id, text, reply_markup=create_main_keyboard())

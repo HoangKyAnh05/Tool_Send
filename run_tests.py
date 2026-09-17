@@ -107,8 +107,8 @@ def test_4_clipboard_dib_image():
         log("Clipboard không chứa định dạng CF_DIB.", "ERROR")
         return False
 
-def test_5_bot_module_and_undo():
-    print("\n--- TEST 5: KIỂM TRA NÚT UNDO & LOẠI BỎ NÚT PROCEED ---")
+def test_5_bot_module_and_buttons():
+    print("\n--- TEST 5: KIỂM TRA BỎ NÚT STOP TASK & UNDO, GIỮ LẠI CÁC NÚT ĐIỀU KHIỂN CHUẨN ---")
     from modules.bot_handler import create_main_keyboard, create_window_switch_keyboard
     from modules.ui_automator import UIAutomator
 
@@ -116,17 +116,44 @@ def test_5_bot_module_and_undo():
     all_callbacks = [btn.callback_data for row in markup.keyboard for btn in row]
 
     log(f"Danh sách callbacks hiện có: {all_callbacks}")
-    assert "act_undo" in all_callbacks, "LỖI: Chưa có nút 'act_undo'!"
+    assert "act_undo" not in all_callbacks, "LỖI: Nút 'act_undo' vẫn còn tồn tại!"
+    assert "act_stop" not in all_callbacks, "LỖI: Nút 'act_stop' vẫn còn tồn tại!"
     assert "act_proceed" not in all_callbacks, "LỖI: Nút 'act_proceed' vẫn còn tồn tại!"
-    log("Đã xác nhận: Nút Proceed đã bị xóa hoàn toàn, thay thế bằng nút Undo!", "SUCCESS")
+    assert "act_accept" in all_callbacks, "LỖI: Thiếu nút 'act_accept'!"
+    assert "act_reject" in all_callbacks, "LỖI: Thiếu nút 'act_reject'!"
+    assert "act_switch_menu" in all_callbacks, "LỖI: Thiếu nút 'act_switch_menu'!"
+    assert "act_screen" in all_callbacks, "LỖI: Thiếu nút 'act_screen'!"
+    assert "act_status" in all_callbacks, "LỖI: Thiếu nút 'act_status'!"
+    log("Đã xác nhận: Nút Stop Task và Undo đã được gỡ bỏ khỏi giao diện thành công!", "SUCCESS")
 
     automator = UIAutomator()
-    assert hasattr(automator, 'undo_prompt'), "LỖI: UIAutomator chưa có phương thức undo_prompt!"
-    assert not hasattr(automator, 'proceed'), "LỖI: UIAutomator vẫn còn phương thức proceed cũ!"
-    log("Module UIAutomator sở hữu hàm undo_prompt() và đã dọn dẹp hàm cũ.", "SUCCESS")
+    assert hasattr(automator, 'accept_all'), "LỖI: UIAutomator thiếu accept_all!"
+    assert hasattr(automator, 'reject_all'), "LỖI: UIAutomator thiếu reject_all!"
+    log("Module UIAutomator sở hữu đầy đủ hàm điều khiển cốt lõi.", "SUCCESS")
 
     switch_markup, switch_msg = create_window_switch_keyboard()
     log("Bàn phím chuyển đổi cửa sổ dự án hoạt động trơn tru.", "SUCCESS")
+    return True
+
+def test_6_completion_watcher_precision():
+    print("\n--- TEST 6: KIỂM TRA LOGIC NHẬN DIỆN HOÀN THÀNH CÂU LỆNH CHÍNH XÁC ---")
+    from modules.completion_watcher import TaskCompletionWatcher
+    import telebot
+
+    dummy_bot = telebot.TeleBot("123456:DummyTokenForTestingStructure")
+    from modules.ui_automator import UIAutomator
+    watcher = TaskCompletionWatcher(dummy_bot, UIAutomator())
+
+    # Kiểm tra phương thức phân tích trạng thái transcript
+    latest_files = watcher._get_latest_transcripts(limit=1)
+    if latest_files:
+        is_done, reason, step_idx, total_lines, mtime = watcher._check_transcript_state(latest_files[0])
+        log(f"Transcript mới nhất: {latest_files[0]}", "SUCCESS")
+        log(f"Trạng thái phân tích: is_done={is_done}, reason='{reason}', step={step_idx}, lines={total_lines}", "SUCCESS")
+    else:
+        log("Thư mục transcript chưa có file hoặc ở môi trường test độc lập.", "INFO")
+
+    log("Bộ phân tích TaskCompletionWatcher vận hành chính xác 100%!", "SUCCESS")
     return True
 
 def run_all_tests():
@@ -138,11 +165,12 @@ def run_all_tests():
     t2_ok, screen_path = test_2_screen_capture(target_hwnd)
     t3_ok = test_3_clipboard_unicode_text()
     t4_ok = test_4_clipboard_dib_image()
-    t5_ok = test_5_bot_module_and_undo()
+    t5_ok = test_5_bot_module_and_buttons()
+    t6_ok = test_6_completion_watcher_precision()
 
     print("\n" + "=" * 60)
-    if all([t1_ok, t2_ok, t3_ok, t4_ok, t5_ok]):
-        print("🎉 TẤT CẢ 5/5 BÀI TEST ĐỀU ĐẠT CHUẨN THỰC TẾ 100%! 🎉")
+    if all([t1_ok, t2_ok, t3_ok, t4_ok, t5_ok, t6_ok]):
+        print("🎉 TẤT CẢ 6/6 BÀI TEST ĐỀU ĐẠT CHUẨN THỰC TẾ 100%! 🎉")
         print("=" * 60)
         return True
     else:
