@@ -37,7 +37,9 @@ EXCLUDED_KEYWORDS = [
     "gdi+",
     "textinputhost",
     "popup host",
-    "hardwaremonitor"
+    "hardwaremonitor",
+    "msctfime ui",
+    "default ime"
 ]
 
 def ensure_desktop_attached():
@@ -56,13 +58,20 @@ def ensure_desktop_attached():
         pass
 
 def get_all_windows():
-    """Lấy danh sách tất cả các cửa sổ đang hiển thị trên Desktop"""
+    """Lấy danh sách tất cả các cửa sổ (bao gồm cả cửa sổ đang minimize trên thanh Taskbar)"""
     ensure_desktop_attached()
     windows = []
 
     def enum_cb(hwnd, lparam):
         try:
-            if not user32.IsWindow(hwnd) or not user32.IsWindowVisible(hwnd):
+            if not user32.IsWindow(hwnd):
+                return True
+
+            is_visible = bool(user32.IsWindowVisible(hwnd))
+            is_iconic = bool(user32.IsIconic(hwnd))
+
+            # Cửa sổ phải đang hiển thị hoặc đang được minimize trên taskbar
+            if not is_visible and not is_iconic:
                 return True
 
             length = user32.GetWindowTextLengthW(hwnd)
@@ -72,11 +81,8 @@ def get_all_windows():
             buff = ctypes.create_unicode_buffer(length + 1)
             user32.GetWindowTextW(hwnd, buff, length + 1)
             title = buff.value.strip()
-
-            rect = RECT()
-            user32.GetWindowRect(hwnd, ctypes.byref(rect))
-            w = rect.right - rect.left
-            h = rect.bottom - rect.top
+            if not title:
+                return True
 
             # Lấy Process Name & Path
             pname = ""
@@ -91,15 +97,21 @@ def get_all_windows():
                         pname = pbuff.value
                     kernel32.CloseHandle(h_proc)
 
-            # Chỉ lấy các cửa sổ có kích thước thực tế
-            if w > 100 and h > 100 and title:
+            rect = RECT()
+            user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            w = rect.right - rect.left
+            h = rect.bottom - rect.top
+
+            # Chấp nhận các cửa sổ có kích thước thực tế HOẶC đang minimize
+            if is_iconic or (w > 100 and h > 100):
                 windows.append({
                     "hwnd": hwnd,
                     "pid": pid.value,
                     "title": title,
                     "process": pname,
                     "width": w,
-                    "height": h
+                    "height": h,
+                    "is_iconic": is_iconic
                 })
         except Exception:
             pass
@@ -111,7 +123,7 @@ def get_all_windows():
 
 def get_all_antigravity_windows():
     """
-    Lấy danh sách TẤT CẢ các cửa sổ DỰ ÁN Antigravity IDE thực tế đang mở.
+    Lấy danh sách TẤT CẢ các cửa sổ DỰ ÁN Antigravity IDE thực tế đang mở (kể cả đang minimize).
     Loại trừ tuyệt đối các cửa sổ Sound Tool, Remote Widget hay cửa sổ tiện ích.
     """
     global ACTIVE_TARGET_HWND, ACTIVE_TARGET_TITLE
@@ -136,10 +148,7 @@ def get_all_antigravity_windows():
         is_anti_proc = "antigravity ide" in pname or pname.endswith("antigravity.exe") or pname.endswith("antigravity ide.exe")
         is_anti_title = "- antigravity ide" in t_lower or "antigravity ide" in t_lower
 
-        # Kích thước phải đủ lớn để là cửa sổ IDE (tránh tooltip hoặc dialog nhỏ)
-        is_valid_size = win["width"] >= 400 and win["height"] >= 300
-
-        if (is_anti_proc or is_anti_title) and is_valid_size:
+        if is_anti_proc or is_anti_title:
             seen_hwnds.add(hwnd)
 
             # 3. Trích xuất tên Dự án (Project Name) chuẩn xác
@@ -162,7 +171,7 @@ def get_all_antigravity_windows():
             if not project_name:
                 project_name = "Antigravity Project"
 
-            # Rút gọn tên hiển thị trên nút bấm Telegram (tối đa 30 ký tự)
+            # Rút gọn tên hiển thị trên nút bấm Telegram (tối đa 28 ký tự)
             display_name = project_name
             if len(display_name) > 28:
                 display_name = display_name[:25] + "..."
@@ -174,7 +183,8 @@ def get_all_antigravity_windows():
                 "display_name": display_name,
                 "active_file": active_file,
                 "full_title": raw_title,
-                "is_active": is_active
+                "is_active": is_active,
+                "is_iconic": win.get("is_iconic", False)
             })
 
     # Nếu chưa có cửa sổ nào được chọn (hoặc cửa sổ cũ đã bị đóng)
@@ -188,7 +198,7 @@ def get_all_antigravity_windows():
     return anti_windows
 
 def set_active_target_window(hwnd: int, title: str = ""):
-    """Chuyển đổi cửa sổ Antigravity mục tiêu"""
+    """Chuyển đổi cửa sổ Antigravity mục tiêu và đưa lên foreground"""
     global ACTIVE_TARGET_HWND, ACTIVE_TARGET_TITLE
     ACTIVE_TARGET_HWND = hwnd
     ACTIVE_TARGET_TITLE = title or f"Window {hwnd}"
@@ -231,7 +241,7 @@ def find_antigravity_window(keyword="Antigravity"):
     return None, "Chưa tìm thấy Antigravity IDE"
 
 def focus_window(hwnd):
-    """Kích hoạt và đưa cửa sổ lên trên cùng (Foreground) tuyệt đối"""
+    """Kích hoạt và đưa cửa sổ lên trên cùng (Foreground) tuyệt đối, kể cả khi đang bị Minimize"""
     if not hwnd or not user32.IsWindow(hwnd):
         return False
 
@@ -239,14 +249,16 @@ def focus_window(hwnd):
         SW_RESTORE = 9
         SW_SHOW = 5
 
-        # Đính kèm thread để đảm bảo quyền SetForegroundWindow
+        # Đính kèm thread để đảm bảo quyền SetForegroundWindow trên Windows
         current_thread_id = kernel32.GetCurrentThreadId()
         window_thread_id = user32.GetWindowThreadProcessId(hwnd, None)
         if current_thread_id != window_thread_id:
             user32.AttachThreadInput(current_thread_id, window_thread_id, True)
 
+        # Nếu đang minimize: restore về bình thường
         if user32.IsIconic(hwnd):
             user32.ShowWindow(hwnd, SW_RESTORE)
+            time.sleep(0.2)
         else:
             user32.ShowWindow(hwnd, SW_SHOW)
 
@@ -261,6 +273,7 @@ def focus_window(hwnd):
         return True
     except Exception as e:
         try:
+            user32.ShowWindow(hwnd, 9)
             user32.SetForegroundWindow(hwnd)
             return True
         except Exception:
@@ -271,6 +284,11 @@ def get_window_rect(hwnd):
     if not hwnd or not user32.IsWindow(hwnd):
         return None
     try:
+        # Nếu đang iconic, restore nhẹ để lấy toạ độ
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, 9)
+            time.sleep(0.1)
+
         rect = RECT()
         if user32.GetWindowRect(hwnd, ctypes.byref(rect)):
             return {

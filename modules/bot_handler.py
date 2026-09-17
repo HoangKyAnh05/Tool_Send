@@ -40,18 +40,18 @@ def create_window_switch_keyboard():
     if not windows:
         markup.add(types.InlineKeyboardButton("🔄 Quét Lại Danh Sách", callback_data="act_switch_menu"))
         markup.add(types.InlineKeyboardButton("⬅️ Quay Lại Menu", callback_data="act_back_main"))
-        return markup, "⚠️ **Chưa phát hiện cửa sổ Antigravity IDE nào đang mở.**\n_Hãy mở một dự án Antigravity trên máy tính rồi bấm Quét Lại._"
+        return markup, "⚠️ Chưa phát hiện cửa sổ Antigravity IDE nào đang mở.\n👉 Hãy mở dự án Antigravity trên máy tính rồi bấm Quét Lại."
 
-    msg_text = "🔀 **DANH SÁCH DỰ ÁN ANTIGRAVITY ĐANG MỞ:**\n\n_Bấm vào dự án bạn muốn điều khiển:_\n"
+    msg_text = "🔀 DANH SÁCH DỰ ÁN ANTIGRAVITY ĐANG MỞ:\n\nBấm vào dự án bạn muốn điều khiển:\n\n"
 
     for win in windows:
         icon = "🟢" if win["is_active"] else "⚪"
         active_tag = " (ĐANG CHỌN)" if win["is_active"] else ""
         btn_text = f"{icon} {win['display_name']}{active_tag}"
         markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"sel_win_{win['hwnd']}"))
-        
-        file_info = f" _({win['active_file']})_" if win.get('active_file') else ""
-        msg_text += f"{icon} **{win['project_name']}**{file_info}\n"
+
+        file_info = f"  [{win['active_file']}]" if win.get('active_file') else ""
+        msg_text += f"{icon} {win['project_name']}{file_info}\n"
 
     markup.add(types.InlineKeyboardButton("🔄 Quét Lại", callback_data="act_switch_menu"))
     markup.add(types.InlineKeyboardButton("⬅️ Quay Lại Menu", callback_data="act_back_main"))
@@ -72,9 +72,8 @@ def setup_bot(bot_token: str):
             if not is_authorized(uid):
                 bot.reply_to(
                     message,
-                    f"⛔ **Từ chối truy cập!**\n\nTelegram ID của bạn là: `{uid}`\n"
-                    f"Vui lòng thêm ID này vào biến `ALLOWED_USER_IDS` trong file `.env` trên máy tính.",
-                    parse_mode="Markdown"
+                    f"⛔ Từ chối truy cập!\n\nTelegram ID của bạn là: {uid}\n"
+                    f"Vui lòng thêm ID này vào ALLOWED_USER_IDS trong file .env trên máy tính."
                 )
                 return
             return func(message, *args, **kwargs)
@@ -86,26 +85,26 @@ def setup_bot(bot_token: str):
     def handle_start(message):
         hwnd, cur_title = find_antigravity_window()
         all_wins = get_all_antigravity_windows()
-        
+
         text = (
-            "👋 **Antigravity Remote Controller**\n\n"
-            f"🎯 **Dự án đang chọn**: `{cur_title}`\n"
-            f"📂 **Tổng số dự án Antigravity phát hiện**: `{len(all_wins)}`\n\n"
-            "✨ **Cách dùng:**\n"
-            "1. 💬 Gõ tin nhắn bất kỳ $\\rightarrow$ Tự động dán Prompt vào ô Chat.\n"
-            "2. 📷 Gửi ảnh $\\rightarrow$ Tự động dán ảnh vào Antigravity.\n"
-            "3. 🔀 Bấm **Đổi Cửa Sổ Dự Án** để chuyển giữa các dự án đang mở.\n"
-            "4. ↩️ Bấm **Undo Lệnh Trước** để hoàn tác / gọi lại câu lệnh trước.\n"
-            "5. ✅ Bấm **Accept All / Reject All** để duyệt mã code."
+            "👋 Antigravity Remote Controller\n\n"
+            f"🎯 Dự án đang chọn: {cur_title}\n"
+            f"📂 Tổng số dự án Antigravity phát hiện: {len(all_wins)}\n\n"
+            "✨ Hướng dẫn:\n"
+            "1. 💬 Gõ tin nhắn bất kỳ -> Tự động dán Prompt vào ô Chat.\n"
+            "2. 📷 Gửi ảnh -> Tự động dán ảnh vào Antigravity.\n"
+            "3. 🔀 Bấm [Đổi Cửa Sổ Dự Án] để chuyển giữa các dự án đang mở.\n"
+            "4. ↩️ Bấm [Undo Lệnh Trước] để hoàn tác / gọi lại câu lệnh trước.\n"
+            "5. ✅ Bấm [Accept All / Reject All] để duyệt code."
         )
-        bot.send_message(message.chat.id, text, reply_markup=create_main_keyboard(), parse_mode="Markdown")
+        bot.send_message(message.chat.id, text, reply_markup=create_main_keyboard())
 
     # --- LỆNH /windows, /switch ---
     @bot.message_handler(commands=['windows', 'switch'])
     @check_auth_decorator
     def handle_windows_cmd(message):
         markup, text = create_window_switch_keyboard()
-        bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(message.chat.id, text, reply_markup=markup)
 
     # --- LỆNH /undo ---
     @bot.message_handler(commands=['undo'])
@@ -168,9 +167,8 @@ def setup_bot(bot_token: str):
                 bot.send_photo(
                     message.chat.id,
                     photo_file,
-                    caption=f"🚀 **Đã gửi câu lệnh!**\n`{user_text[:150]}`\n\n_{msg}_",
-                    reply_markup=create_main_keyboard(),
-                    parse_mode="Markdown"
+                    caption=f"🚀 Đã gửi câu lệnh!\n{user_text[:150]}...\n\n{msg}",
+                    reply_markup=create_main_keyboard()
                 )
         else:
             bot.send_message(message.chat.id, f"ℹ️ {msg}", reply_markup=create_main_keyboard())
@@ -191,9 +189,13 @@ def setup_bot(bot_token: str):
             bot.answer_callback_query(call.id, "🔍 Đang quét các dự án Antigravity...")
             markup, text = create_window_switch_keyboard()
             try:
-                bot.edit_message_text(text, chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+                # Nếu tin nhắn cũ là ảnh, gửi tin nhắn mới
+                if getattr(call.message, 'content_type', '') == 'photo' or getattr(call.message, 'photo', None):
+                    bot.send_message(chat_id, text, reply_markup=markup)
+                else:
+                    bot.edit_message_text(text, chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
             except Exception:
-                bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+                bot.send_message(chat_id, text, reply_markup=markup)
 
         # 2. Xử lý khi chọn 1 cửa sổ cụ thể (sel_win_<hwnd>)
         elif action.startswith("sel_win_"):
@@ -211,25 +213,38 @@ def setup_bot(bot_token: str):
 
                 # Chụp ảnh cửa sổ mới được chọn gửi cho người dùng
                 screen_path = capture_screen(target_hwnd, output_filename="switched_win.jpg")
-                confirm_text = f"🎯 **ĐÃ CHUYỂN SANG ĐIỀU KHIỂN DỰ ÁN:**\n`{selected_win['project_name']}`\n_{selected_win['full_title']}_"
+                confirm_text = f"🎯 ĐÃ CHUYỂN SANG ĐIỀU KHIỂN DỰ ÁN:\n👉 {selected_win['project_name']}\n({selected_win['full_title']})"
 
                 if screen_path and Path(screen_path).exists():
                     with open(screen_path, 'rb') as photo_file:
-                        bot.send_photo(chat_id, photo_file, caption=confirm_text, reply_markup=create_main_keyboard(), parse_mode="Markdown")
+                        bot.send_photo(chat_id, photo_file, caption=confirm_text, reply_markup=create_main_keyboard())
                 else:
-                    bot.send_message(chat_id, confirm_text, reply_markup=create_main_keyboard(), parse_mode="Markdown")
+                    bot.send_message(chat_id, confirm_text, reply_markup=create_main_keyboard())
             else:
-                bot.send_message(chat_id, "⚠️ Cửa sổ này có thể đã bị đóng. Vui lòng quét lại danh sách.", reply_markup=create_main_keyboard())
+                # Nếu hwnd cũ bị đổi, quét lại
+                set_active_target_window(target_hwnd)
+                focus_window(target_hwnd)
+                time.sleep(0.3)
+                screen_path = capture_screen(target_hwnd, output_filename="switched_win.jpg")
+                confirm_text = f"🎯 ĐÃ CHUYỂN SANG CỬA SỔ: (HWND {target_hwnd})"
+                if screen_path and Path(screen_path).exists():
+                    with open(screen_path, 'rb') as photo_file:
+                        bot.send_photo(chat_id, photo_file, caption=confirm_text, reply_markup=create_main_keyboard())
+                else:
+                    bot.send_message(chat_id, confirm_text, reply_markup=create_main_keyboard())
 
         # 3. Quay lại menu chính
         elif action == "act_back_main":
             bot.answer_callback_query(call.id)
             hwnd, cur_title = find_antigravity_window()
-            text = f"📱 **Menu Điều Khiển**\n🎯 Cửa sổ hiện tại: `{cur_title}`"
+            text = f"📱 Menu Điều Khiển\n🎯 Cửa sổ hiện tại: {cur_title}"
             try:
-                bot.edit_message_text(text, chat_id=chat_id, message_id=call.message.message_id, reply_markup=create_main_keyboard(), parse_mode="Markdown")
+                if getattr(call.message, 'content_type', '') == 'photo' or getattr(call.message, 'photo', None):
+                    bot.send_message(chat_id, text, reply_markup=create_main_keyboard())
+                else:
+                    bot.edit_message_text(text, chat_id=chat_id, message_id=call.message.message_id, reply_markup=create_main_keyboard())
             except Exception:
-                bot.send_message(chat_id, text, reply_markup=create_main_keyboard(), parse_mode="Markdown")
+                bot.send_message(chat_id, text, reply_markup=create_main_keyboard())
 
         elif action == "act_screen":
             bot.answer_callback_query(call.id, "📸 Đang chụp màn hình...")
@@ -259,12 +274,12 @@ def setup_bot(bot_token: str):
             hwnd, title = find_antigravity_window()
             all_wins = get_all_antigravity_windows()
             status_text = (
-                f"🖥️ **Trạng Thái Hệ Thống:**\n"
-                f"• Cửa sổ đang điều khiển: `{title}`\n"
-                f"• Tổng số dự án Antigravity: **{len(all_wins)} dự án**\n"
-                f"• ID Telegram của bạn: `{uid}`"
+                f"🖥️ Trạng Thái Hệ Thống:\n"
+                f"• Cửa sổ đang điều khiển: {title}\n"
+                f"• Tổng số dự án Antigravity: {len(all_wins)} dự án\n"
+                f"• ID Telegram của bạn: {uid}"
             )
-            bot.send_message(chat_id, status_text, reply_markup=create_main_keyboard(), parse_mode="Markdown")
+            bot.send_message(chat_id, status_text, reply_markup=create_main_keyboard())
 
     def send_live_screen(chat_id):
         hwnd, cur_title = find_antigravity_window()
@@ -274,9 +289,8 @@ def setup_bot(bot_token: str):
             bot.send_photo(
                 chat_id,
                 photo_file,
-                caption=f"📸 **Live Screen**: `{cur_title}`",
-                reply_markup=create_main_keyboard(),
-                parse_mode="Markdown"
+                caption=f"📸 Live Screen: {cur_title}",
+                reply_markup=create_main_keyboard()
             )
 
     def _send_action_result(chat_id, action_title, msg, screen_path):
