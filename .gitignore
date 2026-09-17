@@ -1,0 +1,20 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Environment & Sensitive keys
+.env
+
+# Temporary images
+temp_images/*
+!temp_images/.gitkeep
+
+# IDE configs
+.idea/
+.vscode/
+
+# Local OS artifacts
+Thumbs.db
+Desktop.ini
